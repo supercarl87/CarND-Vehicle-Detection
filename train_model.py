@@ -1,21 +1,15 @@
-import numpy as np
-import cv2
-import pickle
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-from mpl_toolkits.mplot3d import Axes3D
 import glob
+import pickle
 import time
-from sklearn.svm import LinearSVC
-from sklearn.svm import SVC
-from sklearn.preprocessing import StandardScaler
+
+import cv2
+import matplotlib.image as mpimg
+import numpy as np
 from skimage.feature import hog
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
-from sklearn import svm
-from sklearn.model_selection import StratifiedKFold
-from sklearn.model_selection import GridSearchCV
-from sklearn.externals import joblib
 
 
 def convert_color(image, cspace='RGB'):
@@ -31,17 +25,17 @@ def convert_color(image, cspace='RGB'):
         elif cspace == 'YCrCb':
             feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
     else:
-        feature_image = np.copy(image)
+        feature_image = image
     return feature_image;
 
+
 def bin_spatial(img, size=(32, 32)):
-    color1 = cv2.resize(img[:,:,0], size).ravel()
-    color2 = cv2.resize(img[:,:,1], size).ravel()
-    color3 = cv2.resize(img[:,:,2], size).ravel()
-    return np.hstack((color1, color2, color3))
+    features = cv2.resize(img, size).ravel()
+    return features
+
 
 # Define a function to compute color histogram features
-def color_hist(img, nbins=32, bins_range=(0, 256)):
+def color_hist(img, nbins=32, bins_range=(0, 1)):
     # Compute the histogram of the color channels separately
     channel1_hist = np.histogram(img[:, :, 0], bins=nbins, range=bins_range)
     channel2_hist = np.histogram(img[:, :, 1], bins=nbins, range=bins_range)
@@ -79,8 +73,8 @@ def extract_hog_features(feature_image, orient=9,
 
 def get_feature_for_image(image, cspace='RGB', size=(32, 32), orient=9,
                           pix_per_cell=8, cell_per_block=2, nbins=32, bins_range=(0, 256)):
-    image_resize = cv2.resize(image, size)
-    feature_image = convert_color(image_resize, cspace=cspace)
+    # image_resize = cv2.resize(image, size)
+    feature_image = convert_color(image, cspace=cspace)
 
     spatial_features = bin_spatial(feature_image, size)
     hist_features = color_hist(feature_image, nbins=nbins, bins_range=bins_range)
@@ -99,7 +93,7 @@ def get_feature_for_image_list(path_list, cspace='RGB', size=(32, 32), orient=9,
                                         pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, nbins=nbins,
                                         bins_range=bins_range)
         features.append(feature)
-    return features;
+    return features
 
 
 def train_model():
@@ -107,26 +101,26 @@ def train_model():
 
     vehicle_examples = glob.glob("vehicles/*/*.png")
     non_vehicle_examples = glob.glob("non-vehicles/*/*.png")
-
-    # vehicle_examples = vehicle_examples[:100]
-    # non_vehicle_examples = non_vehicle_examples[:100]
+    #
+    # vehicle_examples = vehicle_examples[:1000]
+    # non_vehicle_examples = non_vehicle_examples[:1000]
     print(len(vehicle_examples))
     print(len(non_vehicle_examples))
 
     orient = 9
     pix_per_cell = 8
     cell_per_block = 2
-    spatial_size = (64, 64)
+    spatial_size = (32, 32)
     nbins = 32
-    cspace = 'RGB'
-    bins_range = (0, 256)
+    cspace = 'YCrCb'
+    bins_range = (0, 1)
 
     car_features = get_feature_for_image_list(vehicle_examples, cspace=cspace, size=spatial_size, orient=orient,
                                               pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, nbins=nbins,
                                               bins_range=bins_range)
     notcar_features = get_feature_for_image_list(non_vehicle_examples, cspace=cspace, size=spatial_size, orient=orient,
-                                              pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, nbins=nbins,
-                                              bins_range=bins_range)
+                                                 pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, nbins=nbins,
+                                                 bins_range=bins_range)
     t2 = time.time()
     print(round(t2 - t, 2), 'Seconds to extract HOG features...')
     X = np.vstack((car_features, notcar_features)).astype(np.float64)
@@ -141,7 +135,7 @@ def train_model():
 
     scaled_X, y = shuffle(scaled_X, y)
     X_train, X_test, y_train, y_test = train_test_split(
-        scaled_X, y, test_size=0.2, random_state=rand_state)
+        scaled_X, y, test_size=0.1, random_state=rand_state)
 
     # print('Using:', orient, 'orientations', pix_per_cell,
     #       'pixels per cell and', cell_per_block, 'cells per block')
@@ -163,7 +157,6 @@ def train_model():
 
     print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
     # Check the prediction time for a single sample
-    t4 = time.time()
     n_predict = 10
     print('Predicts : ', svc.predict(X_test[0:n_predict]))
     print('Labels :   ', y_test[0:n_predict])
