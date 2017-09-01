@@ -21,7 +21,9 @@ from train_model import get_feature_for_image_list
 from train_model import get_hog_features
 from train_model import bin_spatial
 from train_model import color_hist
+from train_model import convert_color
 from scipy.ndimage.measurements import label
+
 
 def add_heat(heatmap, bbox_list):
     # Iterate through list of bboxes
@@ -33,15 +35,17 @@ def add_heat(heatmap, bbox_list):
     # Return updated heatmap
     return heatmap
 
+
 def apply_threshold(heatmap, threshold):
     # Zero out pixels below the threshold
     heatmap[heatmap <= threshold] = 0
     # Return thresholded map
     return heatmap
 
+
 def draw_labeled_bboxes(img, labels):
     # Iterate through all detected cars
-    for car_number in range(1, labels[1]+1):
+    for car_number in range(1, labels[1] + 1):
         # Find pixels with each car_number label value
         nonzero = (labels[0] == car_number).nonzero()
         # Identify x and y values of those pixels
@@ -50,18 +54,10 @@ def draw_labeled_bboxes(img, labels):
         # Define a bounding box based on min/max x and y
         bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
         # Draw the box on the image
-        cv2.rectangle(img, bbox[0], bbox[1], (0,0,255), 6)
+        cv2.rectangle(img, bbox[0], bbox[1], (0, 0, 255), 6)
     # Return the image
     return img
 
-
-def convert_color(img, conv='RGB2YCrCb'):
-    if conv == 'RGB2YCrCb':
-        return cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
-    if conv == 'BGR2YCrCb':
-        return cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
-    if conv == 'RGB2LUV':
-        return cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
 
 # Define a single function that can extract features using hog sub-sampling and make predictions
 def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins):
@@ -69,8 +65,8 @@ def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, ce
     img = img.astype(np.float32) / 255
 
     img_tosearch = img[ystart:ystop, :, :]
-    # ctrans_tosearch = convert_color(img_tosearch, conv='RGB2YCrCb')
-    ctrans_tosearch = img_tosearch
+    ctrans_tosearch = convert_color(img_tosearch, conv='RGB2YCrCb')
+    # ctrans_tosearch = img_tosearch
     if scale != 1:
         imshape = ctrans_tosearch.shape
         ctrans_tosearch = cv2.resize(ctrans_tosearch, (np.int(imshape[1] / scale), np.int(imshape[0] / scale)))
@@ -111,22 +107,21 @@ def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, ce
             ytop = ypos * pix_per_cell
 
             # Extract the image patch
-            subimg = cv2.resize(ctrans_tosearch[ytop:ytop + window, xleft:xleft + window], (64, 64))
+            subimg = cv2.resize(ctrans_tosearch[ytop:ytop + window, xleft:xleft + window], spatial_size)
 
             # Get color features
             spatial_features = bin_spatial(subimg, size=spatial_size)
             hist_features = color_hist(subimg, nbins=hist_bins)
 
             # Scale features and make a prediction
-            base_features = get_feature_for_image(subimg)
+            # base_features = get_feature_for_image(subimg)
+            #
+            # test_features = X_scaler.transform(np.hstack((base_features)).reshape(1, -1))
+            # print(len(spatial_features), len(hist_features), len(hog_features) )
 
-            test_features = X_scaler.transform(np.hstack((base_features)).reshape(1, -1))
 
-
-
-            #test_features = X_scaler.transform(
-            #    np.hstack((spatial_features, hist_features, hog_features)).reshape(1, -1))
-            # test_features = X_scaler.transform(np.hstack((shape_feat, hist_feat)).reshape(1, -1))
+            features = np.hstack((spatial_features, hist_features, hog_features)).reshape(1, -1)
+            test_features = X_scaler.transform(features)
             test_prediction = svc.predict(test_features)
 
             if test_prediction == 1:
@@ -134,11 +129,12 @@ def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, ce
                 ytop_draw = np.int(ytop * scale)
                 win_draw = np.int(window * scale)
                 box = ((xbox_left, ytop_draw + ystart),
-                              (xbox_left + win_draw, ytop_draw + win_draw + ystart))
+                       (xbox_left + win_draw, ytop_draw + win_draw + ystart))
                 box_list.append(box)
                 cv2.rectangle(draw_img, box[0], box[1], (0, 0, 255), 6)
 
     return draw_img, box_list
+
 
 def process_image():
     input_path = "test_images/test1.jpg"
@@ -161,10 +157,11 @@ def process_image():
 
     img = mpimg.imread(input_path)
 
-    out_img, box_list = find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size,
-                        hist_bins)
+    out_img, box_list = find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, cell_per_block,
+                                  spatial_size,
+                                  hist_bins)
 
-    plt.imsave( output_path, out_img)
+    plt.imsave(output_path, out_img)
 
     heat = np.zeros_like(img[:, :, 0]).astype(np.float)
     # Add heat to each box in box list
@@ -179,10 +176,9 @@ def process_image():
     # Find final boxes from heatmap using label function
     labels = label(heatmap)
     heat_image = draw_labeled_bboxes(np.copy(img), labels)
-    plt.imsave( heat_output_path, heat_image)
+    plt.imsave(heat_output_path, heat_image)
 
     pass
-
 
 
 if __name__ == '__main__':

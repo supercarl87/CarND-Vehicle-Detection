@@ -17,21 +17,32 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import GridSearchCV
 from sklearn.externals import joblib
 
-def bin_spatial(img, color_space='RGB', size=(32, 32)):
+
+def convert_color(img, conv='RGB2YCrCb'):
+    if conv == 'RGB2YCrCb':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
+    if conv == 'BGR2YCrCb':
+        return cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+    if conv == 'RGB2LUV':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
+    return np.copy(img)
+
+
+def bin_spatial(feature_image, color_space='RGB', size=(32, 32)):
     # Convert image to new color space (if specified)
     # Use cv2.resize().ravel() to create the feature vector
-    if color_space != 'RGB':
-        if color_space == 'HSV':
-            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-        elif color_space == 'LUV':
-            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
-        elif color_space == 'HLS':
-            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
-        elif color_space == 'YUV':
-            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
-        elif color_space == 'YCrCb':
-            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
-    else: feature_image = np.copy(img)
+    # if color_space != 'RGB':
+    #     if color_space == 'HSV':
+    #         feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    #     elif color_space == 'LUV':
+    #         feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
+    #     elif color_space == 'HLS':
+    #         feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+    #     elif color_space == 'YUV':
+    #         feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+    #     elif color_space == 'YCrCb':
+    #         feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
+    # else: feature_image = np.copy(img)
     # Use cv2.resize().ravel() to create the feature vector
     features = cv2.resize(feature_image, size).ravel()
     # Return the feature vector
@@ -58,22 +69,22 @@ def extract_color_features(image, cspace='RGB', spatial_size=(32, 32),
     # apply color conversion if other than 'RGB'
 
     features = []
-    if cspace != 'RGB':
-        if cspace == 'HSV':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-        elif cspace == 'LUV':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2LUV)
-        elif cspace == 'HLS':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
-        elif cspace == 'YUV':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
-        elif cspace == 'YCrCb':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
-    else: feature_image = np.copy(image)
+    # if cspace != 'RGB':
+    #     if cspace == 'HSV':
+    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    #     elif cspace == 'LUV':
+    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2LUV)
+    #     elif cspace == 'HLS':
+    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+    #     elif cspace == 'YUV':
+    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
+    #     elif cspace == 'YCrCb':
+    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
+    # else: feature_image = np.copy(image)
     # Apply bin_spatial() to get spatial color features
-    spatial_features = bin_spatial(feature_image, color_space=cspace, size=spatial_size)
+    spatial_features = bin_spatial(image, color_space=cspace, size=spatial_size)
     # Apply color_hist() also with a color space option now
-    hist_features = color_hist(feature_image, nbins=hist_bins, bins_range=hist_range)
+    hist_features = color_hist(image, nbins=hist_bins, bins_range=hist_range)
     # Append the new feature vector to the features list
     features.extend(spatial_features)
     features.extend(hist_features)
@@ -91,10 +102,17 @@ def get_feature_for_image_list(path_list):
 def get_feature_for_image(image, size=(32, 32)):
     image_resize = cv2.resize(image, size)
 
+
+    feature_image = convert_color(image_resize, conv='RGB2YCrCb')
+
+    spatial_features = bin_spatial(feature_image)
+    hist_features = color_hist(feature_image)
+    hog_features = extract_hog_features(feature_image)
+    # print(len(spatial_features), len(hist_features), len(hog_features) )
+
     features = []
-    features.extend(extract_hog_features(image_resize))
-    features.extend(extract_color_features(image_resize))
-    return features
+    return np.hstack((spatial_features, hist_features, hog_features))
+
 
 
 def get_hog_features(img, orient, pix_per_cell, cell_per_block,
@@ -114,49 +132,59 @@ def get_hog_features(img, orient, pix_per_cell, cell_per_block,
 
 # Define a function to extract features from a list of images
 # Have this function call bin_spatial() and color_hist()
-def extract_hog_features(image, cspace='RGB', orient=9,
+def extract_hog_features(feature_image, cspace='RGB', orient=9,
                         pix_per_cell=8, cell_per_block=2, hog_channel='ALL'):
     # Create a list to append feature vectors to
     # Iterate through the list of images
     # Read in each one by one
     # apply color conversion if other than 'RGB'
-    if cspace != 'RGB':
-        if cspace == 'HSV':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-        elif cspace == 'LUV':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2LUV)
-        elif cspace == 'HLS':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
-        elif cspace == 'YUV':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
-        elif cspace == 'YCrCb':
-            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
-    else: feature_image = np.copy(image)
+    # if cspace != 'RGB':
+    #     if cspace == 'HSV':
+    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    #     elif cspace == 'LUV':
+    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2LUV)
+    #     elif cspace == 'HLS':
+    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+    #     elif cspace == 'YUV':
+    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
+    #     elif cspace == 'YCrCb':
+    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
+    # else: feature_image = np.copy(image)
 
     # Call get_hog_features() with vis=False, feature_vec=True
-    if hog_channel == 'ALL':
-        hog_features = []
-        for channel in range(feature_image.shape[2]):
-            hog_features.append(get_hog_features(feature_image[:,:,channel],
-                                orient, pix_per_cell, cell_per_block,
-                                vis=False, feature_vec=True))
-        hog_features = np.ravel(hog_features)
-    else:
-        hog_features = get_hog_features(feature_image[:,:,hog_channel], orient,
-                    pix_per_cell, cell_per_block, vis=False, feature_vec=True)
-    # Append the new feature vector to the features list
-    return hog_features
+    # if hog_channel == 'ALL':
+    #     hog_features = []
+    #     for channel in range(feature_image.shape[2]):
+    #         hog_features.append(get_hog_features(feature_image[:,:,channel],
+    #                             orient, pix_per_cell, cell_per_block,
+    #                             vis=False, feature_vec=True))
+    #     hog_features = np.ravel(hog_features)
+    # else:
+    #     hog_features = get_hog_features(feature_image[:,:,hog_channel], orient,
+    #                 pix_per_cell, cell_per_block, vis=False, feature_vec=True)
+    # # Append the new feature vector to the features list
+
+    ch1 = feature_image[:, :, 0]
+    ch2 = feature_image[:, :, 1]
+    ch3 = feature_image[:, :, 2]
+
+    hog1 = get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    hog2 = get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    hog3 = get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    return np.hstack((hog1.ravel(), hog2.ravel(), hog3.ravel()))
 
 def train_model():
     t = time.time()
 
     vehicle_examples = glob.glob("vehicles/*/*.png")
     non_vehicle_examples = glob.glob("non-vehicles/*/*.png")
+
+    # vehicle_examples = vehicle_examples[:100]
+    # non_vehicle_examples = non_vehicle_examples[:100]
     print(len(vehicle_examples))
     print(len(non_vehicle_examples))
     #
-    # vehicle_examples = vehicle_examples[:100]
-    # non_vehicle_examples = non_vehicle_examples[:100]
+
 
     car_features = get_feature_for_image_list(vehicle_examples)
     notcar_features = get_feature_for_image_list(non_vehicle_examples)
@@ -194,21 +222,7 @@ def train_model():
     svc.fit(X_train, y_train)
     t2 = time.time()
 
-    # C_range = 10. ** np.arange(-3, 8)
-    # gamma_range = 10. ** np.arange(-5, 4)
-    #
-    # param_grid = dict(gamma=gamma_range, C=C_range)
-    #
-    # grid = GridSearchCV(SVC(), param_grid=param_grid, cv=StratifiedKFold(y=y_train, k=5))
-    #
-    # grid.fit(X_train, y_train)
-    #
-    # print("The best classifier is: ", grid.best_estimator_)
-    # svc = grid.best_estimator_
-    # plot the scores of the grid
-    # grid_scores_ contains parameter settings and scores
-    # score_dict = grid.grid_scores_
-    # print(" Best score ", score_dict)
+
     print(round(t2 - t, 2), 'Seconds to train SVC...')
     # Check the score of the SVC
     print('Training Accuracy of SVC = ', round(svc.score(X_train, y_train), 4))
@@ -246,33 +260,6 @@ def train_model():
         pickle.dump(dist_pickle, file=f)
 
     print("Done")
-
-def test_model():
-    vehicle_examples = glob.glob("vehicles/*/*.png")
-    non_vehicle_examples = glob.glob("non-vehicles/*/*.png")
-    print(len(vehicle_examples))
-    print(len(non_vehicle_examples))
-    #
-    # vehicle_examples = vehicle_examples[:100]
-    # non_vehicle_examples = non_vehicle_examples[:100]
-
-    car_features = get_feature_for_image_list(vehicle_examples)
-    notcar_features = get_feature_for_image_list(non_vehicle_examples)
-    t2 = time.time()
-    X = np.vstack((car_features, notcar_features)).astype(np.float64)
-    # Fit a per-column scaler
-    X_scaler = StandardScaler().fit(X)
-    # Apply the scaler to X
-    scaled_X = X_scaler.transform(X)
-
-    # Define the labels vector
-    y = np.hstack((np.ones(len(car_features)), np.zeros(len(notcar_features))))
-    rand_state = np.random.randint(0, 100)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        scaled_X, y, test_size=0.2, random_state=rand_state)
-    svc = joblib.load('model.pkl')
-    print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
 
 
 
