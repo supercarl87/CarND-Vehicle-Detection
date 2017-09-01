@@ -18,105 +18,40 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.externals import joblib
 
 
-def convert_color(img, conv='RGB2YCrCb'):
-    if conv == 'RGB2YCrCb':
-        return cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
-    if conv == 'BGR2YCrCb':
-        return cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
-    if conv == 'RGB2LUV':
-        return cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
-    return np.copy(img)
+def convert_color(image, cspace='RGB'):
+    if cspace != 'RGB':
+        if cspace == 'HSV':
+            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+        elif cspace == 'LUV':
+            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2LUV)
+        elif cspace == 'HLS':
+            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+        elif cspace == 'YUV':
+            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
+        elif cspace == 'YCrCb':
+            feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
+    else:
+        feature_image = np.copy(image)
+    return feature_image;
 
-
-def bin_spatial(feature_image, color_space='RGB', size=(32, 32)):
-    # Convert image to new color space (if specified)
-    # Use cv2.resize().ravel() to create the feature vector
-    # if color_space != 'RGB':
-    #     if color_space == 'HSV':
-    #         feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-    #     elif color_space == 'LUV':
-    #         feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
-    #     elif color_space == 'HLS':
-    #         feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
-    #     elif color_space == 'YUV':
-    #         feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
-    #     elif color_space == 'YCrCb':
-    #         feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
-    # else: feature_image = np.copy(img)
-    # Use cv2.resize().ravel() to create the feature vector
-    features = cv2.resize(feature_image, size).ravel()
-    # Return the feature vector
-    return features
+def bin_spatial(img, size=(32, 32)):
+    color1 = cv2.resize(img[:,:,0], size).ravel()
+    color2 = cv2.resize(img[:,:,1], size).ravel()
+    color3 = cv2.resize(img[:,:,2], size).ravel()
+    return np.hstack((color1, color2, color3))
 
 # Define a function to compute color histogram features
 def color_hist(img, nbins=32, bins_range=(0, 256)):
     # Compute the histogram of the color channels separately
-    channel1_hist = np.histogram(img[:,:,0], bins=nbins, range=bins_range)
-    channel2_hist = np.histogram(img[:,:,1], bins=nbins, range=bins_range)
-    channel3_hist = np.histogram(img[:,:,2], bins=nbins, range=bins_range)
-    # Concatenate the histograms into a single feature vector
+    channel1_hist = np.histogram(img[:, :, 0], bins=nbins, range=bins_range)
+    channel2_hist = np.histogram(img[:, :, 1], bins=nbins, range=bins_range)
+    channel3_hist = np.histogram(img[:, :, 2], bins=nbins, range=bins_range)
     hist_features = np.concatenate((channel1_hist[0], channel2_hist[0], channel3_hist[0]))
-    # Return the individual histograms, bin_centers and feature vector
     return hist_features
-
-# Define a function to extract features from a list of images
-# Have this function call bin_spatial() and color_hist()
-def extract_color_features(image, cspace='RGB', spatial_size=(32, 32),
-                        hist_bins=32, hist_range=(0, 256)):
-    # Create a list to append feature vectors to
-    # Iterate through the list of images
-    # Read in each one by one
-    # apply color conversion if other than 'RGB'
-
-    features = []
-    # if cspace != 'RGB':
-    #     if cspace == 'HSV':
-    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-    #     elif cspace == 'LUV':
-    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2LUV)
-    #     elif cspace == 'HLS':
-    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
-    #     elif cspace == 'YUV':
-    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
-    #     elif cspace == 'YCrCb':
-    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
-    # else: feature_image = np.copy(image)
-    # Apply bin_spatial() to get spatial color features
-    spatial_features = bin_spatial(image, color_space=cspace, size=spatial_size)
-    # Apply color_hist() also with a color space option now
-    hist_features = color_hist(image, nbins=hist_bins, bins_range=hist_range)
-    # Append the new feature vector to the features list
-    features.extend(spatial_features)
-    features.extend(hist_features)
-    return features
-
-
-def get_feature_for_image_list(path_list):
-    features = []
-    for path in path_list:
-        image = mpimg.imread(path)
-        features.append(get_feature_for_image(image))
-    return features;
-
-
-def get_feature_for_image(image, size=(32, 32)):
-    image_resize = cv2.resize(image, size)
-
-
-    feature_image = convert_color(image_resize, conv='RGB2YCrCb')
-
-    spatial_features = bin_spatial(feature_image)
-    hist_features = color_hist(feature_image)
-    hog_features = extract_hog_features(feature_image)
-    # print(len(spatial_features), len(hist_features), len(hog_features) )
-
-    features = []
-    return np.hstack((spatial_features, hist_features, hog_features))
-
 
 
 def get_hog_features(img, orient, pix_per_cell, cell_per_block,
-                        vis=False, feature_vec=True):
+                     vis=False, feature_vec=True):
     # Call with two outputs if vis==True
     if vis == True:
         features, hog_image = hog(img, orientations=orient, pixels_per_cell=(pix_per_cell, pix_per_cell),
@@ -130,48 +65,42 @@ def get_hog_features(img, orient, pix_per_cell, cell_per_block,
                        visualise=vis, feature_vector=feature_vec)
         return features
 
-# Define a function to extract features from a list of images
-# Have this function call bin_spatial() and color_hist()
-def extract_hog_features(feature_image, cspace='RGB', orient=9,
-                        pix_per_cell=8, cell_per_block=2, hog_channel='ALL'):
-    # Create a list to append feature vectors to
-    # Iterate through the list of images
-    # Read in each one by one
-    # apply color conversion if other than 'RGB'
-    # if cspace != 'RGB':
-    #     if cspace == 'HSV':
-    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-    #     elif cspace == 'LUV':
-    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2LUV)
-    #     elif cspace == 'HLS':
-    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
-    #     elif cspace == 'YUV':
-    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
-    #     elif cspace == 'YCrCb':
-    #         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
-    # else: feature_image = np.copy(image)
 
-    # Call get_hog_features() with vis=False, feature_vec=True
-    # if hog_channel == 'ALL':
-    #     hog_features = []
-    #     for channel in range(feature_image.shape[2]):
-    #         hog_features.append(get_hog_features(feature_image[:,:,channel],
-    #                             orient, pix_per_cell, cell_per_block,
-    #                             vis=False, feature_vec=True))
-    #     hog_features = np.ravel(hog_features)
-    # else:
-    #     hog_features = get_hog_features(feature_image[:,:,hog_channel], orient,
-    #                 pix_per_cell, cell_per_block, vis=False, feature_vec=True)
-    # # Append the new feature vector to the features list
-
+def extract_hog_features(feature_image, orient=9,
+                         pix_per_cell=8, cell_per_block=2):
     ch1 = feature_image[:, :, 0]
     ch2 = feature_image[:, :, 1]
     ch3 = feature_image[:, :, 2]
-
     hog1 = get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
     hog2 = get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
     hog3 = get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
     return np.hstack((hog1.ravel(), hog2.ravel(), hog3.ravel()))
+
+
+def get_feature_for_image(image, cspace='RGB', size=(32, 32), orient=9,
+                          pix_per_cell=8, cell_per_block=2, nbins=32, bins_range=(0, 256)):
+    image_resize = cv2.resize(image, size)
+    feature_image = convert_color(image_resize, cspace=cspace)
+
+    spatial_features = bin_spatial(feature_image, size)
+    hist_features = color_hist(feature_image, nbins=nbins, bins_range=bins_range)
+    hog_features = extract_hog_features(feature_image, orient=orient,
+                                        pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
+
+    return np.hstack((spatial_features, hist_features, hog_features))
+
+
+def get_feature_for_image_list(path_list, cspace='RGB', size=(32, 32), orient=9,
+                               pix_per_cell=8, cell_per_block=2, nbins=32, bins_range=(0, 256)):
+    features = []
+    for path in path_list:
+        image = mpimg.imread(path)
+        feature = get_feature_for_image(image, cspace=cspace, size=size, orient=orient,
+                                        pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, nbins=nbins,
+                                        bins_range=bins_range)
+        features.append(feature)
+    return features;
+
 
 def train_model():
     t = time.time()
@@ -183,11 +112,21 @@ def train_model():
     # non_vehicle_examples = non_vehicle_examples[:100]
     print(len(vehicle_examples))
     print(len(non_vehicle_examples))
-    #
 
+    orient = 9
+    pix_per_cell = 8
+    cell_per_block = 2
+    spatial_size = (64, 64)
+    nbins = 32
+    cspace = 'RGB'
+    bins_range = (0, 256)
 
-    car_features = get_feature_for_image_list(vehicle_examples)
-    notcar_features = get_feature_for_image_list(non_vehicle_examples)
+    car_features = get_feature_for_image_list(vehicle_examples, cspace=cspace, size=spatial_size, orient=orient,
+                                              pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, nbins=nbins,
+                                              bins_range=bins_range)
+    notcar_features = get_feature_for_image_list(non_vehicle_examples, cspace=cspace, size=spatial_size, orient=orient,
+                                              pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, nbins=nbins,
+                                              bins_range=bins_range)
     t2 = time.time()
     print(round(t2 - t, 2), 'Seconds to extract HOG features...')
     X = np.vstack((car_features, notcar_features)).astype(np.float64)
@@ -210,18 +149,11 @@ def train_model():
     print('Test example : ', len(X_test))
 
     print('Feature vector length:', len(X_train[0]))
-    # Use a linear SVC
-    # parameters = {'kernel': ('linear', 'rbf'), 'C': [1, 10]}
-    # svr = SVC()
-    # clf = grid_search.GridSearchCV(svr, parameters)
-    # clf.fit(iris.data, iris.target)
-
-    svc = SVC(kernel='linear')
+    svc = LinearSVC()
     # Check the training time for the SVC
     t = time.time()
     svc.fit(X_train, y_train)
     t2 = time.time()
-
 
     print(round(t2 - t, 2), 'Seconds to train SVC...')
     # Check the score of the SVC
@@ -233,34 +165,25 @@ def train_model():
     # Check the prediction time for a single sample
     t4 = time.time()
     n_predict = 10
-    print('My SVC predicts: ', svc.predict(X_test[0:n_predict]))
-    print('For these', n_predict, 'labels: ', y_test[0:n_predict])
+    print('Predicts : ', svc.predict(X_test[0:n_predict]))
+    print('Labels :   ', y_test[0:n_predict])
 
-    # joblib.dump(svc, 'model.pkl')
     model_path = "svc_pickle.p"
-
-    orient = 9
-    pix_per_cell = 8
-    cell_per_block = 2
-
-
-    spatial_size = (32, 32)
-    hist_bins =32
-
 
     dist_pickle = {'svc': svc,
                    'scaler': X_scaler,
-                   'orient':orient,
-                    'pix_per_cell': pix_per_cell,
-                   'cell_per_block':cell_per_block,
+                   'orient': orient,
+                   'pix_per_cell': pix_per_cell,
+                   'cell_per_block': cell_per_block,
                    'spatial_size': spatial_size,
-                   'hist_bins': hist_bins
+                   'nbins': nbins,
+                   'cspace': cspace,
+                   'bins_range': bins_range
                    }
     with open(model_path, 'wb') as f:
         pickle.dump(dist_pickle, file=f)
 
     print("Done")
-
 
 
 if __name__ == '__main__':
