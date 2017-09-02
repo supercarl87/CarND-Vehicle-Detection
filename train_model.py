@@ -1,15 +1,20 @@
 import glob
 import pickle
 import time
+import random
 
 import cv2
 import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
+
 import numpy as np
 from skimage.feature import hog
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
+
+
 
 
 def convert_color(image, cspace='RGB'):
@@ -95,8 +100,49 @@ def get_feature_for_image_list(path_list, cspace='RGB', size=(32, 32), orient=9,
         features.append(feature)
     return features
 
+def show_examples(car_path, non_car_path,  cspace, size, orient,
+                                        pix_per_cell, cell_per_block, nbins,
+                                        bins_range):
+    car_img = mpimg.imread(car_path)
+    non_car_img = mpimg.imread(non_car_path)
 
-def train_model():
+    mpimg.imsave("output_images/car.png", car_img )
+    mpimg.imsave("output_images/non_car.png", non_car_img)
+
+    car_img_color = convert_color(car_img, cspace)
+    non_car_img_color = convert_color(non_car_img, cspace)
+
+    mpimg.imsave("output_images/car_color.png", car_img_color )
+    mpimg.imsave("output_images/non_car_color.png", non_car_img_color)
+
+    car_img1 = car_img[:, :, 0]
+    car_img2 = car_img[:, :, 1]
+    car_img3 = car_img[:, :, 2]
+    non_car_img1 = non_car_img[:, :, 0]
+    non_car_img2 = non_car_img[:, :, 1]
+    non_car_img3 = non_car_img[:, :, 2]
+    car_feature, car_hog_img1 = get_hog_features(car_img1, orient, pix_per_cell, cell_per_block,
+                         vis=True, feature_vec=True)
+    car_feature, car_hog_img2 = get_hog_features(car_img2, orient, pix_per_cell, cell_per_block,
+                         vis=True, feature_vec=True)
+    car_feature, car_hog_img3 = get_hog_features(car_img3, orient, pix_per_cell, cell_per_block,
+                         vis=True, feature_vec=True)
+    non_car_feature, non_car_hog_img1 = get_hog_features(non_car_img1, orient, pix_per_cell, cell_per_block,
+                         vis=True, feature_vec=True)
+    non_car_feature, non_car_hog_img2 = get_hog_features(non_car_img2, orient, pix_per_cell, cell_per_block,
+                         vis=True, feature_vec=True)
+    non_car_feature, non_car_hog_img3 = get_hog_features(non_car_img3, orient, pix_per_cell, cell_per_block,
+                         vis=True, feature_vec=True)
+
+    mpimg.imsave("output_images/car_hog1.png", car_hog_img1 )
+    mpimg.imsave("output_images/car_hog2.png", car_hog_img2 )
+    mpimg.imsave("output_images/car_hog3.png", car_hog_img3 )
+    mpimg.imsave("output_images/non_car_hog1.png", non_car_hog_img1)
+    mpimg.imsave("output_images/non_car_hog2.png", non_car_hog_img2)
+    mpimg.imsave("output_images/non_car_hog3.png", non_car_hog_img3)
+
+
+def train_model(debug=False):
     t = time.time()
 
     vehicle_examples = glob.glob("vehicles/*/*.png")
@@ -107,6 +153,7 @@ def train_model():
     print(len(vehicle_examples))
     print(len(non_vehicle_examples))
 
+
     orient = 9
     pix_per_cell = 8
     cell_per_block = 2
@@ -114,6 +161,13 @@ def train_model():
     nbins = 32
     cspace = 'YCrCb'
     bins_range = (0, 1)
+
+    show_examples(random.choice(vehicle_examples), random.choice(non_vehicle_examples),  cspace=cspace, size=spatial_size, orient=orient,
+                                        pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, nbins=nbins,
+                                        bins_range=bins_range)
+
+    if debug:
+        return
 
     car_features = get_feature_for_image_list(vehicle_examples, cspace=cspace, size=spatial_size, orient=orient,
                                               pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, nbins=nbins,
@@ -180,4 +234,4 @@ def train_model():
 
 
 if __name__ == '__main__':
-    train_model()
+    train_model(debug=True)
