@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from scipy.ndimage.measurements import label
+from collections import deque
 
 from train_model import bin_spatial
 from train_model import color_hist
@@ -85,7 +86,7 @@ def find_cars_fast(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cel
     # 64 was the orginal sampling rate, with 8 cells and 8 pix per cell
     window = 64
     nblocks_per_window = (window // pix_per_cell) - cell_per_block + 1
-    cells_per_step = 2  # Instead of overlap, define how many cells to step
+    cells_per_step = 1  # Instead of overlap, define how many cells to step
     nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
     nysteps = (nyblocks - nblocks_per_window) // cells_per_step
 
@@ -184,6 +185,7 @@ def preocess_image(img, scale, x_start_stop, y_start_stop, xy_window, xy_overlap
 
 
 class VehicleDetector:
+    history = deque(maxlen=8)
     def __init__(self, x_start_stop, y_start_stop, xy_window, xy_overlap, svc, X_scaler, cspace, spatial_size, orient,
                  pix_per_cell, cell_per_block, nbins, bins_range, scale):
         self.x_start_stop = x_start_stop

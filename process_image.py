@@ -21,8 +21,6 @@ nbins = dist_pickle["nbins"]
 cspace = dist_pickle["cspace"]
 bins_range = dist_pickle["bins_range"]
 
-ystart = 350
-ystop = 656
 x_start_stop = (0, 1280)
 y_start_stop = (400, 656)
 xy_window = (64, 64)
