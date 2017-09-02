@@ -25,7 +25,26 @@ The goals / steps of this project are the following:
 
 [car]: ./output_images/car.png
 [non_car]: ./output_images/non_car.png
+[car_color]: ./output_images/car_color.png
+[non_car_color]: ./output_images/non_car_color.png
+[car_hog1]: ./output_images/car_hog1.png
+[car_hog2]: ./output_images/car_hog2.png
+[car_hog3]: ./output_images/car_hog3.png
 
+[non_car_hog1]: ./output_images/non_car_hog1.png
+[non_car_hog2]: ./output_images/non_car_hog2.png
+[non_car_hog3]: ./output_images/non_car_hog3.png
+[box_test1]: ./output_images/box_test1.jpg
+[box_test2]: ./output_images/box_test2.jpg
+[box_test3]: ./output_images/box_test3.jpg
+[box_test4]: ./output_images/box_test4.jpg
+[box_test5]: ./output_images/box_test5.jpg
+[heat_test1]: ./output_images/heat_test1.jpg
+[heat_test2]: ./output_images/heat_test2.jpg
+[heat_test3]: ./output_images/heat_test3.jpg
+[heat_test4]: ./output_images/heat_test4.jpg
+[heat_test5]: ./output_images/heat_test5.jpg
+[car]: ./output_images/car.png
 
 
 
@@ -57,41 +76,68 @@ I started by reading in all the `vehicle` and `non-vehicle` images.  Here is an 
 
 ![alt text][non_car]
 
-
 I then explored different color spaces and different `skimage.hog()` parameters (`orientations`, `pixels_per_cell`, and `cells_per_block`).  I grabbed random images from each of the two classes and displayed them to get a feel for what the `skimage.hog()` output looks like.
 
 Here is an example using the `YCrCb` color space and HOG parameters of `orientations=9`, `pixels_per_cell=(8, 8)` and `cells_per_block=(2, 2)`:
 
+* YCrCb color car
+![alt text][car_color]
+* YCrCb color non car
+![alt text][non_car_color]
 
-![alt text][image2]
+* Car hog1  
+![alt text][car_hog1]
+* Car hog2  
+![alt text][car_hog2]
+* Car hog3  
+![alt text][car_hog3]
+
+* Non Car hog1  
+![alt text][non_car_hog1]
+* Non Car hog2  
+![alt text][non_car_hog2]
+* Non Car hog3  
+![alt text][non_car_hog3]
+
+
 
 #### 2. Explain how you settled on your final choice of HOG parameters.
 
-I tried various combinations of parameters and...
+I tried various combinations of parameters and class default shows good test accuracy.
 
 #### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
-I trained a linear SVM using...
+I trained a linear SVM using scikit. I use both histograms color feature and also bin feature. I split the input data with 90% training data and 10% test data. I shuffle the data before training to make sure the order of the data will not affect the classifier performance.  Ultimately, this can achieve 98.63% test accuracy.
 
 ### Sliding Window Search
 
 #### 1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
 
-I decided to search random window positions at random scales all over the image and came up with this (ok just kidding I didn't actually ;):
+I have two sliding window approaches implemented in the code. One approach will take in x y position and generate all windows based on window sides and generate features based on sub image. The window will be overlap 50%.
 
-![alt text][image3]
+The second approach is use scaled window. Since calculate hog feature is slow and we do not need to calculate each time for every sub image. This approach will generate hog image once based on the scale and take the sub array for features. For window, it will use `64,64` window as the input training examples.  
+
 
 #### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
-Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
+Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  
+For performance optimization, we use faster sliding window approach mentioned in above section.
 
-![alt text][image4]
+
+Here are some example images:
+
+![alt text][box_test1]
+![alt text][box_test2]
+![alt text][box_test3]
+![alt text][box_test4]
+![alt text][box_test5]
+
 ---
 
 ### Video Implementation
 
 ####1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (somewhat wobbly or unstable bounding boxes are ok as long as you are identifying the vehicles most of the time with minimal false positives.)
-Here's a [link to my video result](./project_video.mp4)
+Here's a [link to my video result](./project_video_output.mp4)
 
 
 ####2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
@@ -100,17 +146,13 @@ I recorded the positions of positive detections in each frame of the video.  Fro
 
 Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
 
-### Here are six frames and their corresponding heatmaps:
+### Examples with box combined with heat map :
 
-![alt text][image5]
-
-### Here is the output of `scipy.ndimage.measurements.label()` on the integrated heatmap from all six frames:
-![alt text][image6]
-
-### Here the resulting bounding boxes are drawn onto the last frame in the series:
-![alt text][image7]
-
-
+![alt text][heat_test1]
+![alt text][heat_test2]
+![alt text][heat_test3]
+![alt text][heat_test4]
+![alt text][heat_test5]
 
 ---
 
@@ -118,4 +160,9 @@ Here's an example result showing the heatmap from a series of frames of video, t
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+The sliding window size is sensitive to detect larger or small cars，to optimize nearby cars, I used larger windows side.  The current pipeline will more likely to fail on small car in remote range. We could use different window size based on the y value, since nearby car will appear to be larger.
+
+The pipeline was very slow since we generate hog feature for every sub image, and it is faster with hog image once, but it is still slow. One way to explore could be using gray scale image which will capture most of feature and reduce the hog calculate.
+
+### References
+[CarND Q&A][https://www.youtube.com/watch?v=P2zwrTM8ueA&list=PLAwxTw4SYaPkz3HerxrHlu1Seq8ZA7-5P&index=5]
