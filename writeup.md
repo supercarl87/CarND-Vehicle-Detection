@@ -144,6 +144,8 @@ Here's a [link to my video result](./project_video_output.mp4)
 
 I recorded the positions of positive detections in each frame of the video.  From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of each blob detected.  
 
+To make the window more stable in video, I recorded last 8 bounding box found in the previous video frames and apply this to new the existing bounding box, so the current frame can untilize the information in previous detected cars.
+
 Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
 
 ### Examples with box combined with heat map :

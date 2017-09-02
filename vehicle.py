@@ -29,6 +29,7 @@ def apply_threshold(heatmap, threshold):
 
 def draw_labeled_bboxes(img, labels):
     # Iterate through all detected cars
+    bbox_list = []
     for car_number in range(1, labels[1] + 1):
         # Find pixels with each car_number label value
         nonzero = (labels[0] == car_number).nonzero()
@@ -38,9 +39,10 @@ def draw_labeled_bboxes(img, labels):
         # Define a bounding box based on min/max x and y
         bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
         # Draw the box on the image
+        bbox_list.append(bbox)
         cv2.rectangle(img, bbox[0], bbox[1], (0, 0, 255), 6)
     # Return the image
-    return img
+    return img, bbox_list
 
 
 def slide_window(x_start_stop, y_start_stop, xy_window, xy_overlap):
@@ -162,10 +164,13 @@ def find_cars(img, x_start_stop, y_start_stop, xy_window, xy_overlap, svc, X_sca
 def preocess_image(img, scale, x_start_stop, y_start_stop, xy_window, xy_overlap, svc, X_scaler, cspace, spatial_size,
                    orient,
                    pix_per_cell, cell_per_block, nbins,
-                   bins_range, include_box_image=False):
+                   bins_range, history, include_box_image=False):
     image_with_box, box_list = find_cars_fast(img, y_start_stop[0], y_start_stop[1], scale, svc, X_scaler, orient,
                                               pix_per_cell, cell_per_block, spatial_size, nbins)
     heat = np.zeros_like(img[:, :, 0]).astype(np.float)
+
+    for item in history:
+        box_list.extend(item)
     # Add heat to each box in box list
     heat = add_heat(heat, box_list)
 
@@ -175,9 +180,17 @@ def preocess_image(img, scale, x_start_stop, y_start_stop, xy_window, xy_overlap
     # Visualize the heatmap when displaying
     heatmap = np.clip(heat, 0, 255)
 
+
     # Find final boxes from heatmap using label function
     labels = label(heatmap)
-    heat_image = draw_labeled_bboxes(np.copy(img), labels)
+    heat_image, bbox_list = draw_labeled_bboxes(np.copy(img), labels)
+
+
+    # print("heatmap", heatmap)
+    # print("labels", labels)
+
+    # history.append(bbox_list)
+
     if include_box_image:
         return image_with_box, heat_image
     else:
@@ -207,5 +220,5 @@ class VehicleDetector:
         return preocess_image(image, self.scale, self.x_start_stop, self.y_start_stop, self.xy_window, self.xy_overlap,
                               self.svc, self.X_scaler, self.cspace,
                               self.spatial_size, self.orient,
-                              self.pix_per_cell, self.cell_per_block, self.nbins, self.bins_range,
+                              self.pix_per_cell, self.cell_per_block, self.nbins, self.bins_range, self.history,
                               include_box_image=include_box_image)
