@@ -21,12 +21,15 @@ nbins = dist_pickle["nbins"]
 cspace = dist_pickle["cspace"]
 bins_range = dist_pickle["bins_range"]
 
-x_start_stop = (0, 1280)
+x_start_stop = (300, 1280)
 y_start_stop = (400, 656)
 xy_window = (64, 64)
 xy_overlap = (0.5, 0.5)
 scale = 1.5
-
+y_start_stop_window=(
+                    ((400, 530), 64),
+                    ((400, 600), 96),
+                    ((400, 656), 128))
 
 def batch_process():
     test_images  = glob.glob("test_images/*.jpg")
@@ -40,7 +43,8 @@ def batch_process():
 
         vehicleDetector = vehicle.VehicleDetector(x_start_stop, y_start_stop, xy_window, xy_overlap, svc, X_scaler,
                                                   cspace, spatial_size, orient,
-                                                  pix_per_cell, cell_per_block, nbins, bins_range, scale)
+                                                  pix_per_cell, cell_per_block, nbins, bins_range, scale,
+                                                  y_start_stop_window)
         box_img, heat_img = vehicleDetector.detect(img, include_box_image=True)
         plt.imsave(box_path, box_img)
         plt.imsave(heat_path, heat_img)
@@ -48,9 +52,12 @@ def batch_process():
 
 def video_process():
     vehicleDetector = vehicle.VehicleDetector(x_start_stop, y_start_stop, xy_window,xy_overlap, svc, X_scaler, cspace, spatial_size, orient,
-                                                  pix_per_cell, cell_per_block, nbins,bins_range, scale)
+                                                  pix_per_cell, cell_per_block, nbins,bins_range, scale, y_start_stop_window)
     output_video = 'project_video_output.mp4'
     clip1 = VideoFileClip("project_video.mp4")
+    # output_video = 'test_video_output.mp4'
+    # clip1 = VideoFileClip("test_video.mp4")
+
 
     output_clip = clip1.fl_image(vehicleDetector.detect)
     output_clip.write_videofile(output_video, audio=False)

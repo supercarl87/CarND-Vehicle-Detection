@@ -115,12 +115,13 @@ I trained a linear SVM using scikit. I use both histograms color feature and als
 
 I have two sliding window approaches implemented in the code. One approach will take in x y position and generate all windows based on window sides and generate features based on sub image. The window will be overlap 50%.
 
-The second approach is use scaled window. Since calculate hog feature is slow and we do not need to calculate each time for every sub image. This approach will generate hog image once based on the scale and take the sub array for features. For window, it will use `64,64` window as the input training examples.  
+The second approach is use scaled window. Since calculate hog feature is slow and we do not need to calculate each time for every sub image. This approach will generate hog image once based on the scale and take the sub array for features.
+I use different windows side in different region. `64,64` for middle region and `96,96` and `128,128` for larger region.
 
 
 #### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
-Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  
+Ultimately I searched using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  
 For performance optimization, we use faster sliding window approach mentioned in above section.
 
 
@@ -162,7 +163,9 @@ Here's an example result showing the heatmap from a series of frames of video, t
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-The sliding window size is sensitive to detect larger or small cars，to optimize nearby cars, I used larger windows side.  The current pipeline will more likely to fail on small car in remote range. We could use different window size based on the y value, since nearby car will appear to be larger.
+[improved]The sliding window size is sensitive to detect larger or small cars，to optimize nearby cars, I used larger windows side.  The current pipeline will more likely to fail on small car in remote range. We could use different window size based on the y value, since nearby car will appear to be larger.
+
+The current pipeline use 8 frame of historical data, it will be stable after certain frame, but it does not perform good when new car just entered.
 
 The pipeline was very slow since we generate hog feature for every sub image, and it is faster with hog image once, but it is still slow. One way to explore could be using gray scale image which will capture most of feature and reduce the hog calculate.
 

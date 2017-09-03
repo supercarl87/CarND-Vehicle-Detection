@@ -65,12 +65,12 @@ def slide_window(x_start_stop, y_start_stop, xy_window, xy_overlap):
     return window_list
 
 
-def find_cars_fast(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size,
-                   hist_bins):
-    draw_img = np.copy(img)
+def find_cars_fast(img, xstart_stop, ystart_stop, scale, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size,
+                   hist_bins, window):
     img = img.astype(np.float32) / 255
-
-    img_tosearch = img[ystart:ystop, :, :]
+    ystart = ystart_stop[0]
+    xstart = xstart_stop[0]
+    img_tosearch = img[ystart_stop[0]:ystart_stop[1], xstart_stop[0]:xstart_stop[1], :]
     ctrans_tosearch = convert_color(img_tosearch, cspace='YCrCb')
     if scale != 1:
         imshape = ctrans_tosearch.shape
@@ -86,7 +86,7 @@ def find_cars_fast(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cel
     nfeat_per_block = orient * cell_per_block ** 2
 
     # 64 was the orginal sampling rate, with 8 cells and 8 pix per cell
-    window = 64
+    # window = 64
     nblocks_per_window = (window // pix_per_cell) - cell_per_block + 1
     cells_per_step = 1  # Instead of overlap, define how many cells to step
     nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
@@ -128,18 +128,16 @@ def find_cars_fast(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cel
                 xbox_left = np.int(xleft * scale)
                 ytop_draw = np.int(ytop * scale)
                 win_draw = np.int(window * scale)
-                box = ((xbox_left, ytop_draw + ystart),
-                       (xbox_left + win_draw, ytop_draw + win_draw + ystart))
+                box = ((xbox_left + xstart, ytop_draw + ystart),
+                       (xbox_left + win_draw + xstart, ytop_draw + win_draw + ystart))
                 box_list.append(box)
-                cv2.rectangle(draw_img, box[0], box[1], (0, 0, 255), 6)
 
-    return draw_img, box_list
+    return box_list
 
 
 # Define a single function that can extract features using hog sub-sampling and make predictions
 def find_cars(img, x_start_stop, y_start_stop, xy_window, xy_overlap, svc, X_scaler, orient, pix_per_cell,
               cell_per_block, spatial_size, nbins, cspace, bins_range):
-    draw_img = np.copy(img)
     img = img.astype(np.float32) / 255
     windows = slide_window(x_start_stop, y_start_stop, xy_window, xy_overlap)
 
@@ -156,17 +154,35 @@ def find_cars(img, x_start_stop, y_start_stop, xy_window, xy_overlap, svc, X_sca
         if test_prediction == 1:
             box = window
             box_list.append(box)
-            cv2.rectangle(draw_img, box[0], box[1], (0, 0, 255), 6)
 
-    return draw_img, box_list
+    return box_list
+
+
+def box_draw_box_image(img, box_list):
+    draw_img = np.copy(img)
+    for box in box_list:
+        cv2.rectangle(draw_img, box[0], box[1], (0, 0, 255), 6)
+    return draw_img
 
 
 def preocess_image(img, scale, x_start_stop, y_start_stop, xy_window, xy_overlap, svc, X_scaler, cspace, spatial_size,
                    orient,
                    pix_per_cell, cell_per_block, nbins,
-                   bins_range, history, include_box_image=False):
-    image_with_box, box_list = find_cars_fast(img, y_start_stop[0], y_start_stop[1], scale, svc, X_scaler, orient,
-                                              pix_per_cell, cell_per_block, spatial_size, nbins)
+                   bins_range, history, y_start_stop_window, include_box_image=False):
+    box_list = []
+
+    # box_list_partial = find_cars_fast(img, y_start_stop[0], y_start_stop[1], scale, svc, X_scaler,
+    #                                                   orient,
+    #                                                   pix_per_cell, cell_per_block, spatial_size, nbins, 64)
+    # box_list.extend(box_list_partial)
+    for (y_start_stop, window) in y_start_stop_window:
+        if window ==64 :
+            box_list_partial = find_cars_fast(img, x_start_stop,  y_start_stop, scale, svc, X_scaler, orient,
+                                              pix_per_cell, cell_per_block, spatial_size, nbins, window)
+        else:
+            box_list_partial = find_cars(img, x_start_stop, y_start_stop, (window, window), xy_overlap, svc, X_scaler, orient, pix_per_cell,
+              cell_per_block, spatial_size, nbins, cspace, bins_range)
+        box_list.extend(box_list_partial)
     heat = np.zeros_like(img[:, :, 0]).astype(np.float)
 
     for item in history:
@@ -175,7 +191,7 @@ def preocess_image(img, scale, x_start_stop, y_start_stop, xy_window, xy_overlap
     heat = add_heat(heat, box_list)
 
     # Apply threshold to help remove false positives
-    heat = apply_threshold(heat, 1)
+    heat = apply_threshold(heat, 2)
 
     # Visualize the heatmap when displaying
     heatmap = np.clip(heat, 0, 255)
@@ -185,13 +201,13 @@ def preocess_image(img, scale, x_start_stop, y_start_stop, xy_window, xy_overlap
     labels = label(heatmap)
     heat_image, bbox_list = draw_labeled_bboxes(np.copy(img), labels)
 
+    history.append(bbox_list)
+    if len(history) >= history.maxlen:
+        history.pop()
 
-    # print("heatmap", heatmap)
-    # print("labels", labels)
-
-    # history.append(bbox_list)
 
     if include_box_image:
+        image_with_box = box_draw_box_image(np.copy(img), box_list)
         return image_with_box, heat_image
     else:
         return heat_image
@@ -199,8 +215,9 @@ def preocess_image(img, scale, x_start_stop, y_start_stop, xy_window, xy_overlap
 
 class VehicleDetector:
     history = deque(maxlen=8)
+    processed =0
     def __init__(self, x_start_stop, y_start_stop, xy_window, xy_overlap, svc, X_scaler, cspace, spatial_size, orient,
-                 pix_per_cell, cell_per_block, nbins, bins_range, scale):
+                 pix_per_cell, cell_per_block, nbins, bins_range, scale, y_start_stop_window):
         self.x_start_stop = x_start_stop
         self.y_start_stop = y_start_stop
         self.xy_window = xy_window
@@ -215,10 +232,16 @@ class VehicleDetector:
         self.nbins = nbins
         self.bins_range = bins_range
         self.scale = scale
+        self.y_start_stop_window = y_start_stop_window
 
     def detect(self, image, include_box_image=False):
+        # self.processed += 1
+        # if self.processed < 200 or self.processed > 300:
+        #     return image
+        if include_box_image:
+            history = deque(maxlen=8)
         return preocess_image(image, self.scale, self.x_start_stop, self.y_start_stop, self.xy_window, self.xy_overlap,
                               self.svc, self.X_scaler, self.cspace,
                               self.spatial_size, self.orient,
-                              self.pix_per_cell, self.cell_per_block, self.nbins, self.bins_range, self.history,
+                              self.pix_per_cell, self.cell_per_block, self.nbins, self.bins_range, self.history, self.y_start_stop_window,
                               include_box_image=include_box_image)
